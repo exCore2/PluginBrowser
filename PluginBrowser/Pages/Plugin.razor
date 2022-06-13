@@ -1,0 +1,137 @@
+﻿@page "/plugins/{pluginName}"
+@using Reactive.Bindings
+@using System.Reactive.Linq
+@using System.Reactive.Disposables
+@using Model
+@using PluginBrowser.Services
+@using Reactive.Bindings.Extensions
+@using System.Reactive
+@using PluginBrowser.Utils
+@using Radzen
+@inject SettingsProviderService SettingsProviderService
+@inject BrowserModelProviderService BrowserModelProviderService
+@implements IDisposable
+
+<PageTitle>Information about plugin @PluginName</PageTitle>
+
+<h2>Information about @PluginName</h2>
+
+@if (ModelLoadingState.Value.Kind == NotificationKind.OnError)
+{
+    <div class="validation-message">
+        An error has occurred while loading the model: @(ModelLoadingState.Value.Exception?.Message ?? "Unknown error")
+    </div>
+}
+else if (ModelLoadingState.Value.Value == null)
+{
+    <p>
+        <em>Loading...</em>
+    </p>
+}
+else if (PluginModel.Value == null)
+{
+    <div class="validation-message">
+        Plugin with name @PluginName was not found
+    </div>
+}
+else
+{
+    <div><b>Original author</b>: @PluginModel.Value.OriginalAuthor</div>
+    <div><b>Description</b>: @PluginModel.Value.Description</div>
+
+    <h4>Forks</h4>
+    var emWidth = "max(10vw, 11em)";
+    <div class="rzdg">
+        <RadzenDataGrid Data="@PluginModel.Value.Forks.OrderBy(x => x.Author).ToList()"
+                        AllowColumnResize="true"
+                        FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowFiltering="true"
+                        AllowMultiColumnSorting="true"
+                        AllowSorting="true"
+                        FilterMode="FilterMode.SimpleWithMenu"
+                        FilterDelay="1"
+                        @key='$"plugingrid{SettingsProviderService.Settings.ShownColumns.Value}"'
+                        RowRender="RowRender"
+                        ColumnWidth="@emWidth"
+                        Responsive="true">
+            <Columns>
+                <RadzenDataGridColumn Title="Author" Property="Author" TItem="PluginForkDescription" FilterOperator="FilterOperator.Contains"></RadzenDataGridColumn>
+                <RadzenDataGridColumn Title="Name" Property="Name" TItem="PluginForkDescription" FilterOperator="FilterOperator.Contains">
+                    <Template Context="fork">
+                        @fork.Name (<a href="@GithubUrls.Repository(fork.Author, fork.Name)" target="_blank">repo</a><ExternalUrlIcon></ExternalUrlIcon>)
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn Title="Last commit message" Property="LatestCommit.Message" TItem="PluginForkDescription" FilterOperator="FilterOperator.Contains"></RadzenDataGridColumn>
+                <RadzenDataGridColumn Title="Last updated" Property="LatestCommit.Date" TItem="PluginForkDescription" Filterable="false"></RadzenDataGridColumn>
+                <RadzenDataGridColumn Title="Last release" Property="LatestRelease.Title" TItem="PluginForkDescription" FilterOperator="FilterOperator.Contains">
+                    <Template Context="fork">
+                        <a href="@GithubUrls.Release(fork.Author, fork.Name, fork.LatestRelease?.Id)" target="_blank">
+                            @fork.LatestRelease?.Title
+                        </a><ExternalUrlIcon></ExternalUrlIcon>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn Title="Last release date" Property="LatestRelease.Date" TItem="PluginForkDescription" Filterable="false"></RadzenDataGridColumn>
+            </Columns>
+            <Template Context="fork">
+                <h5>Releases:</h5>
+                <RadzenDataGrid Data="@fork.Releases" AllowSorting="true">
+                    <Columns>
+                        <RadzenDataGridColumn Title="Release name" Property="Title" TItem="ReleaseDescription">
+                            <Template Context="release">
+                                <a href="@GithubUrls.Release(fork.Author, fork.Name, release.Id)" target="_blank">
+                                    @release.Title
+                                </a><ExternalUrlIcon></ExternalUrlIcon>
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn Title="Date" Property="Date" TItem="ReleaseDescription"></RadzenDataGridColumn>
+                        <RadzenDataGridColumn Title="Files" Property="FilesAttached" TItem="ReleaseDescription" Sortable="false">
+                            <Template Context="release">
+                                @string.Join(", ", release.FilesAttached)
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn Title="Description" Property="Description" TItem="ReleaseDescription"></RadzenDataGridColumn>
+                    </Columns>
+                </RadzenDataGrid>
+            </Template>
+        </RadzenDataGrid>
+    </div>
+}
+
+@code {
+
+    [Parameter]
+    public string PluginName { get; set; }
+
+    private readonly CompositeDisposable _disposable = new CompositeDisposable();
+
+    private ReadOnlyReactiveProperty<Notification<BrowserModel?>> ModelLoadingState;
+    private ReadOnlyReactiveProperty<PluginDescription?> PluginModel;
+
+    protected override void OnInitialized()
+    {
+        SettingsProviderService.Settings.ShownColumns.Subscribe(_ => StateHasChanged()).AddTo(_disposable);
+        SettingsProviderService.Settings.UseEndorsedForks.Subscribe(_ => StateHasChanged()).AddTo(_disposable);
+        ModelLoadingState = BrowserModelProviderService.ModelLoadingState;
+        PluginModel = ModelLoadingState
+            .Where(x => x.HasValue && x.Value != null)
+            .Select(x => x.Value!.PluginDescriptions.FirstOrDefault(p => p.Name.Equals(PluginName)))
+            .ToReadOnlyReactiveProperty()
+            .AddTo(_disposable);
+        ModelLoadingState.Subscribe(_ => StateHasChanged()).AddTo(_disposable);
+    }
+
+    public void Dispose()
+    {
+        _disposable.Dispose();
+    }
+
+    private static void RowRender(RowRenderEventArgs<PluginForkDescription> args)
+    {
+        args.Expandable = args.Data.Releases.Any();
+    }
+
+    record ViewPluginForkDescription(string Author, string Name, CommitDescription LatestCommit, List<ReleaseDescription> Releases);
+
+}
+
+

@@ -1,0 +1,37 @@
+﻿@using Reactive.Bindings
+@implements IDisposable
+@typeparam T
+
+@if (Property?.HasErrors == true)
+{
+    <div class="validation-message">
+        @(Property.GetErrors(null)?.Cast<object>().FirstOrDefault())
+    </div>
+}
+
+@code {
+
+    [Parameter]
+    public ReactiveProperty<T>? Property
+    {
+        get => _property;
+        set
+        {
+            if (_property != value)
+            {
+                _subscription?.Dispose();
+                _subscription = value?.ObserveErrorChanged.Subscribe(_ => StateHasChanged());
+                _property = value;
+            }
+        }
+    }
+
+    private IDisposable? _subscription;
+    private ReactiveProperty<T>? _property;
+
+    public void Dispose()
+    {
+        _subscription?.Dispose();
+    }
+
+}

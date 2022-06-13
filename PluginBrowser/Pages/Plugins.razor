@@ -1,0 +1,144 @@
+﻿@page "/plugins"
+@using Reactive.Bindings
+@using System.Reactive.Linq
+@using System.Reactive.Disposables
+@using Model
+@using PluginBrowser.Services
+@using Reactive.Bindings.Extensions
+@using System.Reactive
+@using PluginBrowser.Models
+@using PluginBrowser.Utils
+@using Radzen
+@inject SettingsProviderService SettingsProviderService
+@inject BrowserModelProviderService BrowserModelProviderService
+@implements IDisposable
+
+<PageTitle>Plugin list</PageTitle>
+
+<h1>Plugin list</h1>
+
+@if (ModelLoadingState.Value.Kind == NotificationKind.OnError)
+{
+    <div class="validation-message">
+        An error has occurred while loading the model: @(ModelLoadingState.Value.Exception?.Message ?? "Unknown error")
+    </div>
+}
+else if (ModelLoadingState.Value.Value == null || PluginsView.Value == null)
+{
+    <p>
+        <em>Loading...</em>
+    </p>
+}
+else
+{
+    var emWidth = "max(10vw, 11em)";
+    <div><b>Last rescanned</b>: @ModelLoadingState.Value.Value.Updated</div>
+    <div class="rzdg">
+        <RadzenDataGrid Data="@PluginsView.Value.OrderBy(x => x.Name).ToList()"
+                        AllowColumnResize="true"
+                        FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowFiltering="true"
+                        AllowMultiColumnSorting="true"
+                        AllowSorting="true"
+                        FilterMode="FilterMode.SimpleWithMenu"
+                        FilterDelay="1"
+                        @key='$"pluginsgrid{SettingsProviderService.Settings.ShownColumns.Value}"'
+                        Responsive="true"
+                        ColumnWidth="@emWidth">
+            <Columns>
+                <RadzenDataGridColumn Property="Name" TItem="ViewPluginDescription" FilterOperator="FilterOperator.Contains" Title="Name">
+                    <Template Context="plugin">
+                        @{ var route = $"plugins/{plugin.Name}"; }
+                        <NavLink href="@route">
+                            @plugin.Name
+                        </NavLink>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                @if (SettingsProviderService.Settings.ShownColumns.Value.HasFlag(ShownColumnsFlags.OriginalAuthor))
+                {
+                    <RadzenDataGridColumn Title="Original author" Property="OriginalAuthor" TItem="ViewPluginDescription" FilterOperator="FilterOperator.Contains"></RadzenDataGridColumn>
+                }
+                @if (SettingsProviderService.Settings.ShownColumns.Value.HasFlag(ShownColumnsFlags.SelectedForkAuthor))
+                {
+                    <RadzenDataGridColumn Title="Selected fork author" Property='Fork.Author' TItem="ViewPluginDescription" FilterOperator="FilterOperator.Contains"></RadzenDataGridColumn>
+                }
+                @if (SettingsProviderService.Settings.ShownColumns.Value.HasFlag(ShownColumnsFlags.LatestCommitMessage))
+                {
+                    <RadzenDataGridColumn Title="Last commit message" Property="Fork.LatestCommit.Message" TItem="ViewPluginDescription" FilterOperator="FilterOperator.Contains"></RadzenDataGridColumn>
+                }
+                @if (SettingsProviderService.Settings.ShownColumns.Value.HasFlag(ShownColumnsFlags.LatestCommitDate))
+                {
+                    <RadzenDataGridColumn Title="Last updated" Property='Fork.LatestCommit.Date' TItem="ViewPluginDescription" Filterable="false"></RadzenDataGridColumn>
+                }
+                @if (SettingsProviderService.Settings.ShownColumns.Value.HasFlag(ShownColumnsFlags.LatestReleaseTitle))
+                {
+                    <RadzenDataGridColumn Title="Last release" Property="Fork.LatestRelease?.Title" TItem="ViewPluginDescription" FilterOperator="FilterOperator.Contains">
+                        <Template Context="plugin">
+                            @{ var title = plugin.Fork.LatestRelease?.Title; }
+                            @if (title != null)
+                            {
+                                <a href="@GithubUrls.Release(plugin.Fork.Author, plugin.Fork.Name, plugin.Fork.LatestRelease?.Id)" target="_blank">
+                                    @title
+                                </a>
+                                <ExternalUrlIcon></ExternalUrlIcon>
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+                }
+                @if (SettingsProviderService.Settings.ShownColumns.Value.HasFlag(ShownColumnsFlags.LatestReleaseDate))
+                {
+                    <RadzenDataGridColumn Title="Last release date" Property="Fork.LatestRelease.Date" TItem="ViewPluginDescription" Filterable="false"></RadzenDataGridColumn>
+                }
+                @if (SettingsProviderService.Settings.ShownColumns.Value.HasFlag(ShownColumnsFlags.Description))
+                {
+                    <RadzenDataGridColumn Title="Plugin description" Property="Description" TItem="ViewPluginDescription" FilterOperator="FilterOperator.Contains">
+                        <Template Context="plugin">
+                            <p style="white-space: normal">@plugin.Description</p>
+                        </Template>
+                    </RadzenDataGridColumn>
+                }
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+}
+
+@code {
+    private readonly CompositeDisposable _disposable = new CompositeDisposable();
+
+    private ReadOnlyReactiveProperty<Notification<BrowserModel?>> ModelLoadingState;
+    private ReadOnlyReactiveProperty<List<ViewPluginDescription>?> PluginsView;
+
+    protected override void OnInitialized()
+    {
+        SettingsProviderService.Settings.ShownColumns.Subscribe(_ => StateHasChanged()).AddTo(_disposable);
+        SettingsProviderService.Settings.UseEndorsedForks.Subscribe(_ => StateHasChanged()).AddTo(_disposable);
+        ModelLoadingState = BrowserModelProviderService.ModelLoadingState;
+        ModelLoadingState.Subscribe(_ => StateHasChanged()).AddTo(_disposable);
+
+        PluginsView = ModelLoadingState
+            .Where(x => x.HasValue && x.Value != null)
+            .Select(x => x.Value!)
+            .CombineLatest(SettingsProviderService.Settings.UseEndorsedForks, (model, useEndorsedForks) =>
+            {
+                var list = model.PluginDescriptions;
+                return list.Select(p =>
+                {
+                    var fork = p.Forks.FirstOrDefault(f => useEndorsedForks && f.Author == p.EndorsedAuthor)
+                               ?? p.Forks.MaxBy(x => x.LatestCommit.Date)!;
+                    return new ViewPluginDescription(p.Name, p.OriginalAuthor, fork, p.Description);
+                }).ToList();
+            })
+            .ToReadOnlyReactiveProperty()
+            .AddTo(_disposable);
+        PluginsView.Subscribe(_ => StateHasChanged()).AddTo(_disposable);
+    }
+
+    public void Dispose()
+    {
+        _disposable.Dispose();
+    }
+
+    record ViewPluginDescription(string Name, string OriginalAuthor, PluginForkDescription Fork, string Description);
+
+}

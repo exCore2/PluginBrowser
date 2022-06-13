@@ -1,0 +1,183 @@
+﻿@page "/settings"
+@using PluginBrowser.Services
+@using Reactive.Bindings
+@using System.Reactive.Disposables
+@using System.Reactive.Linq
+@using System.Text.Json
+@using Model
+@using PluginBrowser.Models
+@using Reactive.Bindings.Extensions
+@inject SettingsProviderService SettingsProviderService
+@inject HttpClient HttpClient
+@implements IDisposable
+
+<PageTitle>Plugin browser settings</PageTitle>
+
+<h1>Settings</h1>
+
+<input id="settings-useendorsedforks" class="form-check-input" type="checkbox" @bind="UseEndorsedForks.Value"/>
+<label for="settings-useendorsedforks" class="form-check-label">Use endorsed forks</label>
+<fieldset>
+    <h4>Table columns</h4>
+    @foreach (var record in TableColumns)
+    {
+        <div>
+            <input id="@record.Id" class="form-check-input" type="checkbox" @bind="record.SettingValue.Value"/>
+            <label for="@record.Id" class="form-check-label">@record.Text</label>
+        </div>
+    }
+</fieldset>
+
+@if (HideUrlChanger)
+{
+    <button class="btn-sm btn-secondary" @onclick="() => HideUrlChanger = false">Change data url</button>
+}
+else
+{
+    <div>
+        <h4>Alternative data url</h4>
+        <input id="settings-data-url" type="text" class="form-control-sm @(CustomDataUrlPreview.HasErrors ? "invalid" : "")"
+               @bind="CustomDataUrlPreview.Value" @bind:event="oninput"
+               @onkeydown='k => { if (k.Key == "Enter") StartUriTest();}'/>
+        <ReactivePropertyValidationMessage Property="CustomDataUrlPreview"></ReactivePropertyValidationMessage>
+        @if (!CustomDataUrlPreview.HasErrors)
+        {
+            if (CanStartUriTest)
+            {
+                <button class="btn-primary btn-sm" @onclick="@StartUriTest">Test</button>
+            }
+            else
+            {
+                <div>Testing...</div>
+            }
+
+            if (CheckUrlTask?.IsFaulted == true)
+            {
+                <div class="validation-message">
+                    @CheckUrlTask.Exception?.InnerExceptions.FirstOrDefault()?.Message
+                </div>
+            }
+            if (CheckUrlTask?.IsCompletedSuccessfully == true)
+            {
+                <div>Url is reachable and returns valid data</div>
+                <button @onclick="@(() => SettingsProviderService.Settings.CustomDataUrl.Value = CustomDataUrlPreview.Value)">Save</button>
+            }
+        }
+    </div>
+    if (SettingsProviderService.Settings.CustomDataUrl.Value != null)
+    {
+        <button class="btn-sm btn-secondary" @onclick="() => { HideUrlChanger = true; SettingsProviderService.Settings.CustomDataUrl.Value = null; }">Reset data url</button>
+    }
+}
+
+@code {
+
+    record TableColumnDescription(ReactiveProperty<bool> SettingValue, string Text, string Id);
+
+    readonly CompositeDisposable _disposable = new CompositeDisposable();
+
+    ReactiveProperty<bool> UseEndorsedForks = null!;
+    ReactiveProperty<string> CustomDataUrlPreview = null!;
+    List<TableColumnDescription> TableColumns = null!;
+    bool HideUrlChanger;
+    Task? CheckUrlTask;
+
+    protected override void OnInitialized()
+    {
+        UseEndorsedForks = SettingsProviderService.Settings.UseEndorsedForks;
+        HideUrlChanger = SettingsProviderService.Settings.CustomDataUrl.Value == null;
+        CustomDataUrlPreview = SettingsProviderService.Settings.CustomDataUrl
+            .Select(x => x ?? "")
+            .ToReactiveProperty<string>()
+            .SetValidateNotifyError(s =>
+            {
+                try
+                {
+                    var uri = new Uri(s, UriKind.Absolute);
+                    if (uri.Scheme != "http" && uri.Scheme != "https")
+                    {
+                        return $"Scheme {uri.Scheme} is not supported";
+                    }
+                    return null!;
+                }
+                catch (Exception ex)
+                {
+                    return ex.Message;
+                }
+            });
+        CustomDataUrlPreview.Subscribe(_ => CheckUrlTask = null).AddTo(_disposable);
+        TableColumns = new List<TableColumnDescription>
+        {
+            new TableColumnDescription(CreateProperty(ShownColumnsFlags.OriginalAuthor), "Show original author", "setting-column-1"),
+            new TableColumnDescription(CreateProperty(ShownColumnsFlags.SelectedForkAuthor), "Show selected fork author", "setting-column-2"),
+            new TableColumnDescription(CreateProperty(ShownColumnsFlags.LatestCommitDate), "Show latest commit date", "setting-column-3"),
+            new TableColumnDescription(CreateProperty(ShownColumnsFlags.LatestCommitMessage), "Show latest commit message", "setting-column-4"),
+            new TableColumnDescription(CreateProperty(ShownColumnsFlags.LatestReleaseTitle), "Show latest release title", "setting-column-5"),
+            new TableColumnDescription(CreateProperty(ShownColumnsFlags.LatestReleaseDate), "Show latest release date", "setting-column-6"),
+            new TableColumnDescription(CreateProperty(ShownColumnsFlags.Description), "Show description", "setting-column-7"),
+        };
+    }
+
+    private async Task TestUri(string value)
+    {
+        try
+        {
+            await Task.Yield();
+            var uri = new Uri(value, UriKind.Absolute);
+            var model = await HttpClient.GetFromJsonAsync<BrowserModel>(uri);
+            if (model == null)
+            {
+                throw new Exception("Url returns null");
+            }
+            if (model.PluginDescriptions.Any())
+            {
+                throw new Exception("There are no plugins in the model");
+            }
+        }
+        catch (JsonException ex)
+        {
+            throw new Exception($"Unable to parse response JSON: {ex.Message}");
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private ReactiveProperty<bool> CreateProperty(ShownColumnsFlags flag)
+    {
+        var shownColumns = SettingsProviderService.Settings.ShownColumns;
+        var property = shownColumns.Select(x => x.HasFlag(flag)).ToReactiveProperty().AddTo(_disposable);
+        property.Subscribe(v => ProcessEnumFlagChange(v, flag, shownColumns)).AddTo(_disposable);
+        return property;
+    }
+
+    private static void ProcessEnumFlagChange(bool set, ShownColumnsFlags template, ReactiveProperty<ShownColumnsFlags> target)
+    {
+        if (set)
+        {
+            target.Value |= template;
+        }
+        else
+        {
+            target.Value &= ~template;
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposable.Dispose();
+    }
+
+    private void StartUriTest()
+    {
+        if (CanStartUriTest)
+        {
+            CheckUrlTask = TestUri(CustomDataUrlPreview.Value);
+            CheckUrlTask.ContinueWith(_ => StateHasChanged());
+        }
+    }
+
+    private bool CanStartUriTest => CheckUrlTask == null || CheckUrlTask.IsCompleted;
+
+}
