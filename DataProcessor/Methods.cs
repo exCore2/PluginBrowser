@@ -83,8 +83,7 @@ public class Methods
             Console.WriteLine("No updates, exiting");
             return;
         }
-
-        sb.AppendLine("Data generated using <https://instantsc.github.io/PluginBrowser>, check it out for the full plugin list");
+        
         sb.AppendLine("__**Warning! This message was formed automatically and contains content from third-party sources. Proceed with caution**__");
         foreach (var (key, changed, @new) in changedPluginDetails.GroupBy(x => forkToPluginMap[x.Item1])
                     .OuterJoinUnique(newPlugins.GroupBy(x => forkToPluginMap[x]), x => x.Key, x => x.Key).Select(x => (x.Item1?.Key ?? x.Item2?.Key!, x.Item1, x.Item2))
@@ -137,7 +136,15 @@ public class Methods
         {
             await httpClient.PostAsJsonAsync(releaseWebHook, new
             {
-                content = postContent
+                content = postContent,
+                embeds = new[]
+                {
+                    new
+                    {
+                        title = "Data generated using <https://instantsc.github.io/PluginBrowser>, check it out for the full plugin list", 
+                        color = 1127128
+                    }
+                }
             });
         }
     }
