@@ -59,6 +59,7 @@ public class Methods
 
     public static async Task PostUpdateNotes(FileInfo newFilePath, FileInfo oldFilePath, Uri releaseWebHook)
     {
+        var now = DateTime.UtcNow;
         List<PluginForkDescription> oldContent;
         BrowserModel browserModel;
         await using (var stream1 = newFilePath.OpenRead())
@@ -70,12 +71,15 @@ public class Methods
         var changedPlugins = newContent.Join(oldContent, x => (x.Author, x.Name), x => (x.Author, x.Name), (a, b) => (a, b)).Where(x => !x.a.Equals(x.b)).ToList();
         var newCommits = changedPlugins.Where(x => !x.a.LatestCommit.Equals(x.b.LatestCommit)).Select(x => x.a).ToList();
         var newReleases = changedPlugins.Where(x => x.a.LatestRelease?.Equals(x.b.LatestRelease) != true)
-           .Select(x => (x.a, x.a.Releases.ExceptBy(x.b.Releases.Select(r => r.Id), r => r.Id).ToList()))
-           .ToList();
+            .Select(x => (x.a, NewReleases: x.a.Releases.ExceptBy(x.b.Releases.Select(r => r.Id), r => r.Id)
+                .Where(release => now - release.Date < TimeSpan.FromDays(30))
+                .ToList()))
+            .Where(x => x.NewReleases.Any())
+            .ToList();
         var changedPluginDetails = newCommits
-           .OuterJoinUnique(newReleases.AsNullable(), x => x, x => x?.a!)
-           .Select(x => (x.Item1 ?? x.Item2?.a!, x.Item1?.LatestCommit, x.Item2?.Item2))
-           .ToList();
+            .OuterJoinUnique(newReleases.AsNullable(), x => x, x => x?.a!)
+            .Select(x => (Fork: x.Item1 ?? x.Item2?.a!, x.Item1?.LatestCommit, x.Item2?.NewReleases))
+            .ToList();
         var newPlugins = newContent.ExceptBy(oldContent.Select(x => (x.Author, x.Name)), x => (x.Author, x.Name)).ToList();
         var sb = new StringBuilder();
         if (!changedPluginDetails.Any() && !newPlugins.Any())
@@ -83,11 +87,13 @@ public class Methods
             Console.WriteLine("No updates, exiting");
             return;
         }
-        
+
         sb.AppendLine("__**Warning! This message was formed automatically and contains content from third-party sources. Proceed with caution**__");
-        foreach (var (key, changed, @new) in changedPluginDetails.GroupBy(x => forkToPluginMap[x.Item1])
-                    .OuterJoinUnique(newPlugins.GroupBy(x => forkToPluginMap[x]), x => x.Key, x => x.Key).Select(x => (x.Item1?.Key ?? x.Item2?.Key!, x.Item1, x.Item2))
-                    .OrderBy(x => x.Item1.Name))
+        foreach (var (key, changed, @new) in changedPluginDetails
+                     .GroupBy(x => forkToPluginMap[x.Fork])
+                     .OuterJoinUnique(newPlugins.GroupBy(x => forkToPluginMap[x]), x => x.Key, x => x.Key)
+                     .Select(x => (x.Item1?.Key ?? x.Item2?.Key!, x.Item1, x.Item2))
+                     .OrderBy(x => x.Item1.Name))
         {
             sb.AppendLine($"\nPlugin __**{key.Name}**__");
             if (@new != null)
@@ -108,7 +114,7 @@ public class Methods
 
             if (changed != null)
             {
-                foreach (var (fork, newCommit, newForkReleases) in changed.OrderBy(x => x.Item1.Author).ThenBy(x => x.Item1.Name))
+                foreach (var (fork, newCommit, newForkReleases) in changed.OrderBy(x => x.Fork.Author).ThenBy(x => x.Fork.Name))
                 {
                     sb.AppendLine($"__{fork.Author}__'s fork (<{GithubUrls.Repository(fork.Author, fork.Name)}>)");
                     if (newCommit != null)
