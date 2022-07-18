@@ -36,7 +36,7 @@ public class Methods
 
                         var defaultBranch = await githubApi.Repository.Branch.Get(repo.Id, repo.DefaultBranch);
                         var commit = await githubApi.Repository.Commit.Get(repo.Id, defaultBranch.Commit.Sha);
-                        var commitDescription = new CommitDescription(commit.Commit.Message, commit.Commit.Sha, commit.Author.Login, commit.Commit.Committer.Date.UtcDateTime);
+                        var commitDescription = new CommitDescription(commit.Commit.Message, commit.Commit.Sha, commit.Author?.Login ?? commit.Commit.Author.Name, commit.Commit.Committer.Date.UtcDateTime);
                         forks.Add(new PluginForkDescription(pluginRepository.Author, pluginRepository.Name, commitDescription, releaseDescriptions));
                     }
                     catch (Exception ex)
