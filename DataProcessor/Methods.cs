@@ -24,24 +24,36 @@ public class Methods
                 var forks = new EquatableList<PluginForkDescription>();
                 foreach (var pluginRepository in plugin.Repositories)
                 {
-                    try
+                    var tries = 5;
+                    while (tries-- > 0)
                     {
-                        var repo = await githubApi.Repository.Get(pluginRepository.Author, pluginRepository.Name);
-                        var releases = await githubApi.Repository.Release.GetAll(repo.Id, new ApiOptions { PageCount = 1 });
-                        var releaseDescriptions = releases
-                           .Where(x => x.PublishedAt != null)
-                           .Select(release => new ReleaseDescription(release.TagName, release.Name, release.Assets.Select(a => a.Name).ToEquatableList(), release.Body,
-                                release.CreatedAt.UtcDateTime))
-                           .ToEquatableList();
+                        try
+                        {
+                            var repo = await githubApi.Repository.Get(pluginRepository.Author, pluginRepository.Name);
+                            var releases = await githubApi.Repository.Release.GetAll(repo.Id, new ApiOptions { PageCount = 1 });
+                            var releaseDescriptions = releases
+                                .Where(x => x.PublishedAt != null)
+                                .Select(release => new ReleaseDescription(release.TagName, release.Name, release.Assets.Select(a => a.Name).ToEquatableList(), release.Body,
+                                    release.CreatedAt.UtcDateTime))
+                                .ToEquatableList();
 
-                        var defaultBranch = await githubApi.Repository.Branch.Get(repo.Id, repo.DefaultBranch);
-                        var commit = await githubApi.Repository.Commit.Get(repo.Id, defaultBranch.Commit.Sha);
-                        var commitDescription = new CommitDescription(commit.Commit.Message, commit.Commit.Sha, commit.Author?.Login ?? commit.Commit.Author.Name, commit.Commit.Committer.Date.UtcDateTime);
-                        forks.Add(new PluginForkDescription(pluginRepository.Author, pluginRepository.Name, commitDescription, releaseDescriptions));
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.Error.WriteLine($"Unable to process fork {pluginRepository}: {ex}");
+                            var defaultBranch = await githubApi.Repository.Branch.Get(repo.Id, repo.DefaultBranch);
+                            var commit = await githubApi.Repository.Commit.Get(repo.Id, defaultBranch.Commit.Sha);
+                            var commitDescription = new CommitDescription(commit.Commit.Message, commit.Commit.Sha, commit.Author?.Login ?? commit.Commit.Author.Name,
+                                commit.Commit.Committer.Date.UtcDateTime);
+                            forks.Add(new PluginForkDescription(pluginRepository.Author, pluginRepository.Name, commitDescription, releaseDescriptions));
+                            break;
+                        }
+                        catch (NotFoundException ex)
+                        {
+                            Console.Error.WriteLine($"Fork {pluginRepository} not found: {ex}");
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.Error.WriteLine($"Unable to process fork {pluginRepository}: {ex}");
+                            await Task.Delay(TimeSpan.FromSeconds(5));
+                        }
                     }
                 }
 
@@ -100,7 +112,7 @@ public class Methods
             {
                 foreach (var fork in @new.OrderBy(x => x.Author).ThenBy(x => x.Name))
                 {
-                    sb.AppendLine($"**New** fork by __{fork.Author}__ (<{GithubUrls.Repository(fork.Author, fork.Name)}>)");
+                    sb.AppendLine($"**New** (added) fork by __{fork.Author}__ (<{GithubUrls.Repository(fork.Author, fork.Name)}>)");
                     var processedCommitMessage = SubstringBefore(fork.LatestCommit.Message, new[] { '\r', '\n' }).Replace("`", "");
                     sb.AppendLine($"Latest commit at {fork.LatestCommit.Date.Format()} with message `{processedCommitMessage}`");
                     var latestRelease = fork.LatestRelease;
