@@ -58,11 +58,15 @@ else
                 <RadzenDataGridColumn Title="Author" Property="Author" TItem="PluginForkDescription" FilterOperator="FilterOperator.Contains"></RadzenDataGridColumn>
                 <RadzenDataGridColumn Title="Name" Property="Name" TItem="PluginForkDescription" FilterOperator="FilterOperator.Contains">
                     <Template Context="fork">
-                        @fork.Name (<a href="@GithubUrls.Repository(fork.Author, fork.Name)" target="_blank">repo</a><ExternalUrlIcon></ExternalUrlIcon>)
+                        @fork.Name (<a href="@GithubUrls.Repository(fork.Location, fork.Name)" target="_blank">repo</a><ExternalUrlIcon></ExternalUrlIcon>)
                     </Template>
                 </RadzenDataGridColumn>
                 <RadzenDataGridColumn Title="Last commit message" Property="LatestCommit.Message" TItem="PluginForkDescription" FilterOperator="FilterOperator.Contains"></RadzenDataGridColumn>
-                <RadzenDataGridColumn Title="Last updated" Property="LatestCommit.Date" TItem="PluginForkDescription" Filterable="false"></RadzenDataGridColumn>
+                <RadzenDataGridColumn Title="Last updated" Property="LatestCommit.Date" TItem="PluginForkDescription" Filterable="false">
+                    <Template Context="fork">
+                        @fork.LatestCommit.Date.ToString("u")
+                    </Template>
+                </RadzenDataGridColumn>
                 <RadzenDataGridColumn Title="Last release" Property="LatestRelease.Title" TItem="PluginForkDescription" FilterOperator="FilterOperator.Contains">
                     <Template Context="fork">
                         <a href="@GithubUrls.Release(fork.Author, fork.Name, fork.LatestRelease?.Id)" target="_blank">
@@ -70,7 +74,11 @@ else
                         </a><ExternalUrlIcon></ExternalUrlIcon>
                     </Template>
                 </RadzenDataGridColumn>
-                <RadzenDataGridColumn Title="Last release date" Property="LatestRelease.Date" TItem="PluginForkDescription" Filterable="false"></RadzenDataGridColumn>
+                <RadzenDataGridColumn Title="Last release date" Property="LatestRelease.Date" TItem="PluginForkDescription" Filterable="false">
+                    <Template Context="fork">
+                        @fork.LatestRelease?.Date.ToString("u")
+                    </Template>
+                </RadzenDataGridColumn>
             </Columns>
             <Template Context="fork">
                 <h5>Releases:</h5>

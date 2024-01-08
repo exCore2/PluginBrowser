@@ -1,4 +1,6 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@using PluginBrowser.Pages
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">PluginBrowser</a>
         <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
@@ -17,6 +19,12 @@
                 </NavLink>
             </div>
         }
+        <div class="nav-item px-3">
+            <a class="nav-link" href="https://github.com/exApiTools/ExileApi-Compiled/">Download ExileApi<ExternalUrlIcon Color="white"></ExternalUrlIcon></a>
+        </div>
+        <div class="nav-item px-3">
+            <a class="nav-link" href="https://github.com/exApiTools/ExileApi-Compiled/#donation-info">Donate<ExternalUrlIcon Color="white"></ExternalUrlIcon></a>
+        </div>
     </nav>
 </div>
 
@@ -29,6 +37,7 @@
         new NavItemData("plugins", "Plugins"),
         new NavItemData("settings", "Settings"),
     };
+
     private bool collapseNavMenu = true;
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
@@ -37,4 +46,5 @@
     {
         collapseNavMenu = !collapseNavMenu;
     }
+
 }

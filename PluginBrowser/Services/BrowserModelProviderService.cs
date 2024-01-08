@@ -21,19 +21,19 @@ public class BrowserModelProviderService : IDisposable
     {
         new PluginDescription("Test", "Him", new EquatableList<PluginForkDescription>
         {
-            new PluginForkDescription("Him", "Test",
+            new PluginForkDescription("Him", "HisLocation", "Test",
                 new CommitDescription("His", "123", "Him", DateTime.UtcNow.Subtract(TimeSpan.FromHours(2))),
                 new EquatableList<ReleaseDescription> { new("release-1", "Release 1", new EquatableList<string>(), "Something", DateTime.UtcNow) }),
-            new PluginForkDescription("Mine", "Test",
+            new PluginForkDescription("Mine", "MyLocation", "Test",
                 new CommitDescription("Mine", "456", "Me", DateTime.UtcNow.Subtract(TimeSpan.FromHours(1))),
                 new EquatableList<ReleaseDescription> { new("release-2", "Release 2", new EquatableList<string>(), "Other", DateTime.UtcNow) }),
         }, "Desc1", "His"),
         new PluginDescription("Test 2", "Him", new EquatableList<PluginForkDescription>
         {
-            new PluginForkDescription("Him", "Test",
+            new PluginForkDescription("Him", "HisLocation", "Test",
                 new CommitDescription("His", "123", "Him", DateTime.UtcNow.Subtract(TimeSpan.FromHours(2))),
                 new EquatableList<ReleaseDescription> { new("release-1", "Release 1", new EquatableList<string>(), "Something", DateTime.UtcNow - TimeSpan.FromHours(2)) }),
-            new PluginForkDescription("Mine", "Test",
+            new PluginForkDescription("Mine", "MyLocation", "Test",
                 new CommitDescription("Mine", "456", "Me", DateTime.UtcNow.Subtract(TimeSpan.FromHours(1))),
                 new EquatableList<ReleaseDescription>
                 {
@@ -43,10 +43,10 @@ public class BrowserModelProviderService : IDisposable
         }, "Desc2", "His"),
         new PluginDescription("Test 3", "Him", new EquatableList<PluginForkDescription>
             {
-                new PluginForkDescription("Him", "Test",
+                new PluginForkDescription("Him", "HisLocation", "Test",
                     new CommitDescription("His", "123", "Him", DateTime.UtcNow.Subtract(TimeSpan.FromHours(2))),
                     new EquatableList<ReleaseDescription>()),
-                new PluginForkDescription("Mine", "Test",
+                new PluginForkDescription("Mine", "MyLocation", "Test",
                     new CommitDescription("Mine", "456", "Me", DateTime.UtcNow.Subtract(TimeSpan.FromHours(1))),
                     new EquatableList<ReleaseDescription>()),
             },
@@ -65,7 +65,7 @@ public class BrowserModelProviderService : IDisposable
             {
                 if (x == "test")
                 {
-                    return new BrowserModel(TestPluginList, DateTime.UtcNow);
+                    return new BrowserModel(TestPluginList, DateTime.UtcNow, Constants.ExpectedModelVersion);
                 }
 
                 return await _httpClient.GetFromJsonAsync<BrowserModel>(x ?? DefaultDataUri) ??

@@ -7,7 +7,6 @@
 @using Reactive.Bindings.Extensions
 @using System.Reactive
 @using PluginBrowser.Models
-@using PluginBrowser.Utils
 @using Radzen
 @inject SettingsProviderService SettingsProviderService
 @inject BrowserModelProviderService BrowserModelProviderService
@@ -32,7 +31,7 @@ else if (ModelLoadingState.Value.Value == null || PluginsView.Value == null)
 else
 {
     var emWidth = "max(10vw, 11em)";
-    <div><b>Last rescanned</b>: @ModelLoadingState.Value.Value.Updated</div>
+    <div><b>Last rescanned</b>: @ModelLoadingState.Value.Value.Updated.ToString("u")</div>
     <div class="rzdg">
         <RadzenDataGrid Data="@PluginsView.Value.OrderBy(x => x.Name).ToList()"
                         AllowColumnResize="true"
@@ -69,11 +68,15 @@ else
                 }
                 @if (SettingsProviderService.Settings.ShownColumns.Value.HasFlag(ShownColumnsFlags.LatestCommitDate))
                 {
-                    <RadzenDataGridColumn Title="Last updated" Property='Fork.LatestCommit.Date' TItem="ViewPluginDescription" Filterable="false"></RadzenDataGridColumn>
+                    <RadzenDataGridColumn Title="Last updated" Property='Fork.LatestCommit.Date' TItem="ViewPluginDescription" Filterable="false">
+                        <Template Context="fork">
+                            @fork.Fork.LatestCommit.Date.ToString("u")
+                        </Template>
+                    </RadzenDataGridColumn>
                 }
                 @if (SettingsProviderService.Settings.ShownColumns.Value.HasFlag(ShownColumnsFlags.LatestReleaseTitle))
                 {
-                    <RadzenDataGridColumn Title="Last release" Property="Fork.LatestRelease?.Title" TItem="ViewPluginDescription" FilterOperator="FilterOperator.Contains">
+                    <RadzenDataGridColumn Title="Last release" Property="Fork.LatestRelease?.Title" TItem="ViewPluginDescription" FilterOperator="FilterOperator.Contains" SortProperty="Fork.LatestRelease.Title">
                         <Template Context="plugin">
                             @{ var title = plugin.Fork.LatestRelease?.Title; }
                             @if (title != null)
@@ -88,7 +91,11 @@ else
                 }
                 @if (SettingsProviderService.Settings.ShownColumns.Value.HasFlag(ShownColumnsFlags.LatestReleaseDate))
                 {
-                    <RadzenDataGridColumn Title="Last release date" Property="Fork.LatestRelease.Date" TItem="ViewPluginDescription" Filterable="false"></RadzenDataGridColumn>
+                    <RadzenDataGridColumn Title="Last release date" Property="Fork.LatestRelease?.Date" TItem="ViewPluginDescription" Filterable="false" SortProperty="Fork.LatestRelease.Date">
+                        <Template Context="fork">
+                            @fork.Fork.LatestRelease?.Date.ToString("u")
+                        </Template>
+                    </RadzenDataGridColumn>
                 }
                 @if (SettingsProviderService.Settings.ShownColumns.Value.HasFlag(ShownColumnsFlags.Description))
                 {

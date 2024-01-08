@@ -12,8 +12,8 @@ public class Methods
         await using var outputStream = Console.OpenStandardOutput();
         var inputModel = JsonSerializer.Deserialize<InputModel>(inputStream);
         var secret = File.Exists("key.txt")
-                         ? File.ReadAllText("key.txt")
-                         : Environment.GetEnvironmentVariable("gh_token") ?? throw new Exception("Auth token not found");
+            ? File.ReadAllText("key.txt")
+            : Environment.GetEnvironmentVariable("gh_token") ?? throw new Exception("Auth token not found");
         var githubApi = new GitHubClient(new ProductHeaderValue("test-plugin-browser"))
             { Credentials = new Credentials(secret) };
         var plugins = new List<PluginDescription>();
@@ -29,7 +29,8 @@ public class Methods
                     {
                         try
                         {
-                            var repo = await githubApi.Repository.Get(pluginRepository.Author, pluginRepository.Name);
+                            var repositoryLocation = pluginRepository.Location ?? pluginRepository.Author;
+                            var repo = await githubApi.Repository.Get(repositoryLocation, pluginRepository.Name);
                             var releases = await githubApi.Repository.Release.GetAll(repo.Id, new ApiOptions { PageCount = 1 });
                             var releaseDescriptions = releases
                                 .Where(x => x.PublishedAt != null)
@@ -37,11 +38,11 @@ public class Methods
                                     release.CreatedAt.UtcDateTime))
                                 .ToEquatableList();
 
-                            var defaultBranch = await githubApi.Repository.Branch.Get(repo.Id, repo.DefaultBranch);
-                            var commit = await githubApi.Repository.Commit.Get(repo.Id, defaultBranch.Commit.Sha);
+                            var branch = await githubApi.Repository.Branch.Get(repo.Id, pluginRepository.Branch ?? repo.DefaultBranch);
+                            var commit = await githubApi.Repository.Commit.Get(repo.Id, branch.Commit.Sha);
                             var commitDescription = new CommitDescription(commit.Commit.Message, commit.Commit.Sha, commit.Author?.Login ?? commit.Commit.Author.Name,
                                 commit.Commit.Committer.Date.UtcDateTime);
-                            forks.Add(new PluginForkDescription(pluginRepository.Author, pluginRepository.Name, commitDescription, releaseDescriptions));
+                            forks.Add(new PluginForkDescription(pluginRepository.Author, repositoryLocation, pluginRepository.Name, commitDescription, releaseDescriptions));
                             break;
                         }
                         catch (NotFoundException ex)
@@ -65,7 +66,7 @@ public class Methods
             }
         }
 
-        var browserModel = new BrowserModel(plugins, DateTime.UtcNow);
+        var browserModel = new BrowserModel(plugins, DateTime.UtcNow, Constants.ExpectedModelVersion);
         JsonSerializer.Serialize(outputStream, browserModel);
     }
 
@@ -73,12 +74,26 @@ public class Methods
     {
         var now = DateTime.UtcNow;
         List<PluginForkDescription> oldContent;
-        BrowserModel browserModel;
+        BrowserModel? browserModel;
         await using (var stream1 = newFilePath.OpenRead())
             browserModel = JsonSerializer.Deserialize<BrowserModel>(stream1);
+        if (browserModel?.ModelVersion != Constants.ExpectedModelVersion)
+        {
+            return;
+        }
+
         var newContent = browserModel.PluginDescriptions.SelectMany(p => p.Forks.Select(f => f)).ToList();
         await using (var stream2 = oldFilePath.OpenRead())
-            oldContent = JsonSerializer.Deserialize<BrowserModel>(stream2).PluginDescriptions.SelectMany(p => p.Forks.Select(f => f)).ToList();
+        {
+            var oldContentModel = JsonSerializer.Deserialize<BrowserModel>(stream2);
+            if (oldContentModel?.ModelVersion != Constants.ExpectedModelVersion)
+            {
+                return;
+            }
+
+            oldContent = oldContentModel.PluginDescriptions.SelectMany(p => p.Forks.Select(f => f)).ToList();
+        }
+
         var forkToPluginMap = browserModel.PluginDescriptions.SelectMany(p => p.Forks.Select(f => (p, f))).ToDictionary(x => x.f, x => x.p);
         var changedPlugins = newContent.Join(oldContent, x => (x.Author, x.Name), x => (x.Author, x.Name), (a, b) => (a, b)).Where(x => !x.a.Equals(x.b)).ToList();
         var newCommits = changedPlugins.Where(x => !x.a.LatestCommit.Equals(x.b.LatestCommit)).Select(x => x.a).ToList();
@@ -112,7 +127,7 @@ public class Methods
             {
                 foreach (var fork in @new.OrderBy(x => x.Author).ThenBy(x => x.Name))
                 {
-                    sb.AppendLine($"**New** (added) fork by __{fork.Author}__ (<{GithubUrls.Repository(fork.Author, fork.Name)}>)");
+                    sb.AppendLine($"**New** (added) fork by __{fork.Author}__ (<{GithubUrls.Repository(fork.Location, fork.Name)}>)");
                     var processedCommitMessage = SubstringBefore(fork.LatestCommit.Message, new[] { '\r', '\n' }).Replace("`", "");
                     sb.AppendLine($"Latest commit at {fork.LatestCommit.Date.Format()} with message `{processedCommitMessage}`");
                     var latestRelease = fork.LatestRelease;
@@ -128,7 +143,7 @@ public class Methods
             {
                 foreach (var (fork, newCommit, newForkReleases) in changed.OrderBy(x => x.Fork.Author).ThenBy(x => x.Fork.Name))
                 {
-                    sb.AppendLine($"__{fork.Author}__'s fork (<{GithubUrls.Repository(fork.Author, fork.Name)}>)");
+                    sb.AppendLine($"__{fork.Author}__'s fork (<{GithubUrls.Repository(fork.Location, fork.Name)}>)");
                     if (newCommit != null)
                     {
                         var processedCommitMessage = SubstringBefore(newCommit.Message, new[] { '\r', '\n' }).Replace("`", "");
@@ -159,7 +174,7 @@ public class Methods
                 {
                     new
                     {
-                        title = "Data generated using <https://instantsc.github.io/PluginBrowser>, check it out for the full plugin list", 
+                        title = "Data generated using <https://instantsc.github.io/PluginBrowser>, check it out for the full plugin list",
                         color = 1127128
                     }
                 }

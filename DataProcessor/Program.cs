@@ -20,4 +20,4 @@ record InputModel(List<PluginInfo> Plugins);
 
 record PluginInfo(string Name, string OriginalAuthor, List<RepositoryInfo> Repositories, string Description, string? EndorsedAuthor);
 
-record RepositoryInfo(string Author, string Name);
+record RepositoryInfo(string Author, string Name, string? Branch, string? Location);
