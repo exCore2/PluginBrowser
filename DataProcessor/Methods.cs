@@ -122,19 +122,19 @@ public class Methods
                      .Select(x => (x.Item1?.Key ?? x.Item2?.Key!, x.Item1, x.Item2))
                      .OrderBy(x => x.Item1.Name))
         {
-            sb.AppendLine($"\nPlugin __**{key.Name}**__");
+            sb.AppendLine($"\n> ## Plugin __**{key.Name}**__");
             if (@new != null)
             {
                 foreach (var fork in @new.OrderBy(x => x.Author).ThenBy(x => x.Name))
                 {
-                    sb.AppendLine($"**New** (added) fork by __{fork.Author}__ (<{GithubUrls.Repository(fork.Location, fork.Name)}>)");
+                    sb.AppendLine($"> \n> **New** (added) fork by [{fork.Location}/{fork.Name}](<{GithubUrls.Repository(fork.Location, fork.Name)}>)");
                     var processedCommitMessage = SubstringBefore(fork.LatestCommit.Message, new[] { '\r', '\n' }).Replace("`", "");
-                    sb.AppendLine($"Latest commit at {fork.LatestCommit.Date.Format()} with message `{processedCommitMessage}`");
+                    sb.AppendLine($"> Latest commit at <t:{((DateTimeOffset)fork.LatestCommit.Date).ToUnixTimeSeconds()}> with message\n> `{processedCommitMessage}`");
                     var latestRelease = fork.LatestRelease;
                     if (latestRelease != null)
                     {
                         var displayTitle = latestRelease.Title.Replace("`", "");
-                        sb.AppendLine($"Latest release: `{displayTitle}` at {latestRelease.Date.Format()} (<{GithubUrls.Release(fork.Author, fork.Name, latestRelease.Id)}>)");
+                        sb.AppendLine($"> Latest release: [{latestRelease.Id}](<{GithubUrls.Release(fork.Author, fork.Name, latestRelease.Id)}>) at <t:{((DateTimeOffset)latestRelease.Date).ToUnixTimeSeconds()}> with title\n> `{displayTitle}`");
                     }
                 }
             }
@@ -143,11 +143,11 @@ public class Methods
             {
                 foreach (var (fork, newCommit, newForkReleases) in changed.OrderBy(x => x.Fork.Author).ThenBy(x => x.Fork.Name))
                 {
-                    sb.AppendLine($"__{fork.Author}__'s fork (<{GithubUrls.Repository(fork.Location, fork.Name)}>)");
+                    sb.AppendLine($"> \n> Fork by [{fork.Location}/{fork.Name}](<{GithubUrls.Repository(fork.Location, fork.Name)}>)");
                     if (newCommit != null)
                     {
                         var processedCommitMessage = SubstringBefore(newCommit.Message, new[] { '\r', '\n' }).Replace("`", "");
-                        sb.AppendLine($"New commits since last update: latest commit at {newCommit.Date.Format()} with message `{processedCommitMessage}`");
+                        sb.AppendLine($"> New commits since last update: latest commit at <t:{((DateTimeOffset)newCommit.Date).ToUnixTimeSeconds()}> with message\n> `{processedCommitMessage}`");
                     }
 
                     if (newForkReleases != null && newForkReleases.Any())
@@ -155,7 +155,7 @@ public class Methods
                         foreach (var release in newForkReleases.OrderBy(x => x.Date))
                         {
                             var displayTitle = release.Title.Replace("`", "");
-                            sb.AppendLine($"New release: `{displayTitle}` at {release.Date.Format()} (<{GithubUrls.Release(fork.Author, fork.Name, release.Id)}>)");
+                            sb.AppendLine($"> New release: [{release.Id}](<{GithubUrls.Release(fork.Author, fork.Name, release.Id)}>) at <t:{((DateTimeOffset)release.Date).ToUnixTimeSeconds()}> with title\n> `{displayTitle}`");
                         }
                     }
                 }
