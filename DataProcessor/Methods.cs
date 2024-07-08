@@ -127,14 +127,14 @@ public class Methods
             {
                 foreach (var fork in @new.OrderBy(x => x.Author).ThenBy(x => x.Name))
                 {
-                    sb.AppendLine($"> \n> **New** (added) fork by [{fork.Location}/{fork.Name}](<{GithubUrls.Repository(fork.Location, fork.Name)}>)");
+                    sb.AppendLine($"> \n> **New** (added) fork by [{fork.Author}/{fork.Name}](<{GithubUrls.Repository(fork.Location, fork.Name)}>)");
                     var processedCommitMessage = SubstringBefore(fork.LatestCommit.Message, new[] { '\r', '\n' }).Replace("`", "");
-                    sb.AppendLine($"> Latest commit at <t:{((DateTimeOffset)fork.LatestCommit.Date).ToUnixTimeSeconds()}> with message\n> `{processedCommitMessage}`");
+                    sb.AppendLine($"> Latest commit at {ToUnixTimestampTag(fork.LatestCommit.Date)} with message\n> `{processedCommitMessage}`");
                     var latestRelease = fork.LatestRelease;
                     if (latestRelease != null)
                     {
                         var displayTitle = latestRelease.Title.Replace("`", "");
-                        sb.AppendLine($"> Latest release: [{latestRelease.Id}](<{GithubUrls.Release(fork.Author, fork.Name, latestRelease.Id)}>) at <t:{((DateTimeOffset)latestRelease.Date).ToUnixTimeSeconds()}> with title\n> `{displayTitle}`");
+                        sb.AppendLine($"> Latest release: [{latestRelease.Id}](<{GithubUrls.Release(fork.Author, fork.Name, latestRelease.Id)}>) at {ToUnixTimestampTag(latestRelease.Date)} with title\n> `{displayTitle}`");
                     }
                 }
             }
@@ -143,11 +143,11 @@ public class Methods
             {
                 foreach (var (fork, newCommit, newForkReleases) in changed.OrderBy(x => x.Fork.Author).ThenBy(x => x.Fork.Name))
                 {
-                    sb.AppendLine($"> \n> Fork by [{fork.Location}/{fork.Name}](<{GithubUrls.Repository(fork.Location, fork.Name)}>)");
+                    sb.AppendLine($"> \n> Fork by [{fork.Author}/{fork.Name}](<{GithubUrls.Repository(fork.Location, fork.Name)}>)");
                     if (newCommit != null)
                     {
                         var processedCommitMessage = SubstringBefore(newCommit.Message, new[] { '\r', '\n' }).Replace("`", "");
-                        sb.AppendLine($"> New commits since last update: latest commit at <t:{((DateTimeOffset)newCommit.Date).ToUnixTimeSeconds()}> with message\n> `{processedCommitMessage}`");
+                        sb.AppendLine($"> New commits since last update: latest commit at {ToUnixTimestampTag(newCommit.Date)} with message\n> `{processedCommitMessage}`");
                     }
 
                     if (newForkReleases != null && newForkReleases.Any())
@@ -155,7 +155,7 @@ public class Methods
                         foreach (var release in newForkReleases.OrderBy(x => x.Date))
                         {
                             var displayTitle = release.Title.Replace("`", "");
-                            sb.AppendLine($"> New release: [{release.Id}](<{GithubUrls.Release(fork.Author, fork.Name, release.Id)}>) at <t:{((DateTimeOffset)release.Date).ToUnixTimeSeconds()}> with title\n> `{displayTitle}`");
+                            sb.AppendLine($"> New release: [{release.Id}](<{GithubUrls.Release(fork.Author, fork.Name, release.Id)}>) at {ToUnixTimestampTag(release.Date)} with title\n> `{displayTitle}`");
                         }
                     }
                 }
@@ -182,6 +182,17 @@ public class Methods
         }
     }
 
+    private static string ToUnixTimestampTag(DateTime dateTime)
+    {
+        try
+        {
+            return $"<t:{((DateTimeOffset)dateTime.Date).ToUnixTimeSeconds()}>";
+        }
+        catch
+        {
+            return dateTime.Format();
+        }
+    }
 
     private static string SubstringBefore(string s, char[] symbols)
     {
