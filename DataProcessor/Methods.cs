@@ -186,7 +186,7 @@ public class Methods
     {
         try
         {
-            return $"<t:{((DateTimeOffset)dateTime.Date).ToUnixTimeSeconds()}>";
+            return $"<t:{((DateTimeOffset)dateTime).ToUnixTimeSeconds()}>";
         }
         catch
         {
