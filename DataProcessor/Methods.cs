@@ -202,13 +202,14 @@ public class Methods
         var discordEmbedBatches = pluginEmbedList.Repositories
             .Select(repo => new
             {
+                author = new { name = repo.Author, url = repo.AuthorURL },
                 fields = new[]
                 {
-                    new { name = repo.Fork.FieldName, value = repo.Fork.FieldDesc, inline = repo.Fork.IsInline },
-                    new { name = repo.CommitWhen.FieldName, value = repo.CommitWhen.FieldDesc, inline = repo.CommitWhen.IsInline },
-                    new { name = repo.LastCommitMessage.FieldName, value = repo.LastCommitMessage.FieldDesc, inline = repo.LastCommitMessage.IsInline },
-                    new { name = repo.NewLatestRelease.FieldName, value = repo.NewLatestRelease.FieldDesc, inline = repo.NewLatestRelease.IsInline },
-                    new { name = repo.NewLatestReleaseTag.FieldName, value = repo.NewLatestReleaseTag.FieldDesc, inline = repo.NewLatestReleaseTag.IsInline },
+                    new {name = repo.Fork.FieldName, value = repo.Fork.FieldDesc, inline = repo.Fork.IsInline},
+                    new {name = repo.CommitWhen.FieldName, value = repo.CommitWhen.FieldDesc, inline = repo.CommitWhen.IsInline},
+                    new {name = repo.LastCommitMessage.FieldName, value = repo.LastCommitMessage.FieldDesc, inline = repo.LastCommitMessage.IsInline},
+                    new {name = repo.NewLatestRelease.FieldName, value = repo.NewLatestRelease.FieldDesc, inline = repo.NewLatestRelease.IsInline},
+                    new {name = repo.NewLatestReleaseTag.FieldName, value = repo.NewLatestReleaseTag.FieldDesc, inline = repo.NewLatestReleaseTag.IsInline}
                 }.Where(field => !string.IsNullOrEmpty(field.name) && !string.IsNullOrEmpty(field.value)).ToArray()
             })
             .Select((embed, index) => new { embed, index })
@@ -281,18 +282,18 @@ public class Repository
 {
     public string Author { get; set; } = string.Empty;
     public string AuthorURL { get; set; } = string.Empty;
-    public bool IsNewFork { get; set; } = false;
+    public bool IsNewFork { get; set; }
     public EmbedField Fork { get; set; } = new();
-    public EmbedField CommitWhen { get; set; } = new() {IsInline = true, FieldDesc = "Last Commit Message", FieldName = "```\nN/A\n```" };
-    public EmbedField LastCommitMessage { get; set; } = new(){ IsInline = false, FieldName = "Last Commit Message", FieldDesc = "```\nN/A\n```" };
-    public bool HasRelease { get; set; } = false;
+    public EmbedField CommitWhen { get; set; } = new();
+    public EmbedField LastCommitMessage { get; set; } = new();
+    public bool HasRelease { get; set; }
     public EmbedField NewLatestRelease { get; set; } = new();
     public EmbedField NewLatestReleaseTag { get; set; } = new();
 }
 
 public class EmbedField
 {
-    public bool IsInline { get; set; } = false;
+    public bool IsInline { get; set; }
     public string FieldName { get; set; } = string.Empty;
     public string FieldDesc { get; set; } = string.Empty;
 }
