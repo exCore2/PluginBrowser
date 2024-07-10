@@ -5,6 +5,11 @@
         return date.ToString("dd MMMM yyyy HH:mm");
     }
 
+    public static string WrapDiscordCodeBlock(this string s)
+    {
+        return $"```\n{s}\n```";
+    }
+
     public static IEnumerable<(T1?, T2?)> OuterJoinUnique<T1, T2, TK>(this IEnumerable<T1> source, IEnumerable<T2> other, Func<T1, TK> keySelector1, Func<T2, TK> keySelector2)
         where TK : notnull
     {
