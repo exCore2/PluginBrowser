@@ -54,7 +54,7 @@ public class BrowserModelProviderService : IDisposable
             "His"),
     };
 
-    private const string DefaultDataUri = "https://raw.githubusercontent.com/instantsc/PluginBrowserData/data/output.json";
+    private const string DefaultDataUri = "https://raw.githubusercontent.com/exCore2/PluginBrowserData/data/output.json";
 
     public BrowserModelProviderService(HttpClient httpClient, SettingsProviderService settingsProviderService)
     {

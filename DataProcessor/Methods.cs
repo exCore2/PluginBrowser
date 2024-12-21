@@ -215,7 +215,7 @@ public class Methods
             })
             .Append(new
             {
-                title = "Data generated using <https://instantsc.github.io/PluginBrowser>, check it out for the full plugin list",
+                title = "Data generated using <https://exCore2.github.io/PluginBrowser>, check it out for the full plugin list",
                 color = 1127128
             })
             .Select((embed, index) => new { embed, index })
